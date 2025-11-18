@@ -1,6 +1,7 @@
 'use client';
 import { useState, useEffect, useRef } from 'react';
-import Map, { Marker, Source, Layer, MapRef, LngLatBounds } from 'react-map-gl';
+import Map, { Marker, Source, Layer, MapRef } from 'react-map-gl';
+import { LngLatBounds } from 'mapbox-gl';
 import 'mapbox-gl/dist/mapbox-gl.css';
 import { type LocationPoint } from './page';
 import { Truck } from 'lucide-react';
@@ -63,7 +64,7 @@ const RealTimeMap = ({ locationHistory }: RealTimeMapProps) => {
   // Efeito para ajustar a visualização do mapa quando o histórico de localização muda
   useEffect(() => {
     if (mapRef.current && locationHistory.length > 1) {
-      const coordinates = routeGeoJSON.geometry.coordinates;
+      const coordinates = routeGeoJSON.geometry.coordinates as [number, number][];
       const bounds = new LngLatBounds(
         coordinates[0],
         coordinates[0]
