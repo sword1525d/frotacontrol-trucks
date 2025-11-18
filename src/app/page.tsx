@@ -76,7 +76,7 @@ export default function Home() {
         const companyList = companySnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Company));
         setCompanies(companyList);
       } catch (error) {
-        console.error("Error fetching companies:", error);
+        console.error("Erro ao buscar empresas:", error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -105,7 +105,7 @@ export default function Home() {
         const sectorList = sectorSnapshot.docs.map(doc => ({ ...doc.data(), id: doc.id } as Sector));
         setSectors(sectorList);
       } catch (error) {
-        console.error("Error fetching sectors:", error);
+        console.error("Erro ao buscar setores:", error);
         toast({
           variant: "destructive",
           title: "Erro",
@@ -123,7 +123,7 @@ export default function Home() {
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
     try {
-      // The user's email is their matricula + a domain
+      // O email do usuário é a matrícula + um domínio
       const email = `${data.email}@frotacontrol.com`;
       const userCredential = await signInWithEmailAndPassword(auth, email, data.password);
       const user = userCredential.user;
@@ -152,7 +152,7 @@ export default function Home() {
       }
 
     } catch (error: any) {
-      console.error("Login failed", error);
+      console.error("Login falhou", error);
       let description = "Matrícula ou senha incorretos.";
       if (error.code === 'auth/user-not-found' || error.code === 'auth/wrong-password') {
         description = "Matrícula ou senha incorretos.";
@@ -182,7 +182,7 @@ export default function Home() {
                 Frotacontrol
               </h1>
             </div>
-            <h2 className="text-2xl font-bold font-headline">Login to your account</h2>
+            <h2 className="text-2xl font-bold font-headline">Acesse sua conta</h2>
             <p className="text-balance text-muted-foreground">
               Selecione sua empresa, setor e insira suas credenciais.
             </p>
