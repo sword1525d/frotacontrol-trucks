@@ -43,7 +43,7 @@ const vehicleSchema = z.object({
   companyId: z.string().min(1, 'Selecione uma empresa'),
   vehicleId: z.string().min(1, 'ID do Veículo (placa) é obrigatório'),
   model: z.string().min(1, 'Modelo é obrigatório'),
-  year: z.coerce.number().min(1900, 'Ano inválido'),
+  imageUrl: z.string().url('URL da imagem inválida').optional(),
 });
 
 const userSchema = z.object({
@@ -158,7 +158,7 @@ export default function AdminPage() {
     await handleSubmission('veículo', async () => {
       if (!firestore) throw new Error('Firestore não disponível');
       const vehicleRef = doc(firestore, `companies/${data.companyId}/vehicles`, data.vehicleId);
-      await setDoc(vehicleRef, { model: data.model, year: data.year });
+      await setDoc(vehicleRef, { model: data.model, imageUrl: data.imageUrl || '' });
       toast({ title: 'Sucesso', description: 'Veículo cadastrado!' });
       vehicleForm.reset();
     });
@@ -279,8 +279,8 @@ export default function AdminPage() {
               <Input {...vehicleForm.register('model')} placeholder="Modelo do Veículo" />
               {vehicleForm.formState.errors.model && <p className="text-sm text-destructive">{vehicleForm.formState.errors.model.message}</p>}
 
-              <Input type="number" {...vehicleForm.register('year')} placeholder="Ano do Veículo" />
-              {vehicleForm.formState.errors.year && <p className="text-sm text-destructive">{vehicleForm.formState.errors.year.message}</p>}
+              <Input {...vehicleForm.register('imageUrl')} placeholder="URL da Imagem do Veículo" />
+              {vehicleForm.formState.errors.imageUrl && <p className="text-sm text-destructive">{vehicleForm.formState.errors.imageUrl.message}</p>}
 
               <Button type="submit" disabled={isSubmitting['veículo']}>
                 {renderLoading('veículo')} Cadastrar Veículo

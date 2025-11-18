@@ -102,9 +102,10 @@
           "type": "string",
           "description": "The model of the vehicle."
         },
-        "year": {
-          "type": "number",
-          "description": "The manufacturing year of the vehicle."
+        "imageUrl": {
+          "type": "string",
+          "format": "uri",
+          "description": "A URL pointing to an image of the vehicle."
         }
       },
       "required": [
