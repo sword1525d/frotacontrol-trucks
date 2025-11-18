@@ -73,38 +73,74 @@ type UserData = {
 };
 
 // --- Funções Auxiliares para o Mapa ---
-const filterUniqueLocations = (locations: LocationPoint[]): LocationPoint[] => {
-    if (!locations || locations.length === 0) return [];
-    const unique: LocationPoint[] = [locations[0]];
-    for (let i = 1; i < locations.length; i++) {
-        if (locations[i].latitude !== locations[i - 1].latitude || locations[i].longitude !== locations[i - 1].longitude) {
-            unique.push(locations[i]);
-        }
-    }
-    return unique;
+const haversineDistance = (coords1: {latitude: number, longitude: number}, coords2: {latitude: number, longitude: number}) => {
+    const toRad = (x: number) => (x * Math.PI) / 180;
+    const R = 6371; // Raio da Terra em km
+
+    const dLat = toRad(coords2.latitude - coords1.latitude);
+    const dLon = toRad(coords2.longitude - coords1.longitude);
+    const lat1 = toRad(coords1.latitude);
+    const lat2 = toRad(coords2.latitude);
+
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c * 1000; // distância em metros
 };
 
 const createOptimizedGoogleMapsUrl = (locationHistory: LocationPoint[]): string => {
-    const uniqueLocations = filterUniqueLocations(locationHistory);
-    if (uniqueLocations.length < 2) return '';
+    if (!locationHistory || locationHistory.length < 2) return '';
 
-    const origin = `${uniqueLocations[0].latitude},${uniqueLocations[0].longitude}`;
-    const destination = `${uniqueLocations[uniqueLocations.length - 1].latitude},${uniqueLocations[uniqueLocations.length - 1].longitude}`;
+    const sortedHistory = [...locationHistory].sort((a, b) => a.timestamp.seconds - b.timestamp.seconds);
     
-    let waypoints: string[] = [];
-    const intermediatePoints = uniqueLocations.slice(1, -1);
-    const maxWaypoints = 25; // Limite seguro para Google Maps
+    const origin = `${sortedHistory[0].latitude},${sortedHistory[0].longitude}`;
+    const destination = `${sortedHistory[sortedHistory.length - 1].latitude},${sortedHistory[sortedHistory.length - 1].longitude}`;
 
-    if (intermediatePoints.length > maxWaypoints) {
-        const step = Math.floor(intermediatePoints.length / maxWaypoints);
-        for (let i = 0; i < intermediatePoints.length; i += step) {
-            waypoints.push(`${intermediatePoints[i].latitude},${intermediatePoints[i].longitude}`);
+    const stops: LocationPoint[] = [];
+    const STOP_RADIUS_METERS = 50; // 50 metros de raio para considerar uma parada
+    const MIN_STOP_DURATION_SECONDS = 120; // 2 minutos
+
+    let currentStop: { points: LocationPoint[], startTime: number } | null = null;
+
+    for (const point of sortedHistory) {
+        if (!currentStop) {
+            currentStop = { points: [point], startTime: point.timestamp.seconds };
+            continue;
         }
-    } else {
-        waypoints = intermediatePoints.map(p => `${p.latitude},${p.longitude}`);
+
+        const distance = haversineDistance(currentStop.points[0], point);
+
+        if (distance < STOP_RADIUS_METERS) {
+            currentStop.points.push(point);
+        } else {
+            const stopDuration = currentStop.points[currentStop.points.length - 1].timestamp.seconds - currentStop.startTime;
+            if (stopDuration >= MIN_STOP_DURATION_SECONDS) {
+                // Pega o ponto central do cluster da parada
+                const avgLat = currentStop.points.reduce((sum, p) => sum + p.latitude, 0) / currentStop.points.length;
+                const avgLon = currentStop.points.reduce((sum, p) => sum + p.longitude, 0) / currentStop.points.length;
+                stops.push({ latitude: avgLat, longitude: avgLon, timestamp: currentStop.points[0].timestamp });
+            }
+            currentStop = { points: [point], startTime: point.timestamp.seconds };
+        }
+    }
+    // Verifica a última parada
+    if (currentStop) {
+       const stopDuration = currentStop.points[currentStop.points.length - 1].timestamp.seconds - currentStop.startTime;
+       if (stopDuration >= MIN_STOP_DURATION_SECONDS) {
+           const avgLat = currentStop.points.reduce((sum, p) => sum + p.latitude, 0) / currentStop.points.length;
+           const avgLon = currentStop.points.reduce((sum, p) => sum + p.longitude, 0) / currentStop.points.length;
+           stops.push({ latitude: avgLat, longitude: avgLon, timestamp: currentStop.points[0].timestamp });
+       }
     }
 
-    const waypointsString = waypoints.join('|');
+
+    const waypointsString = stops
+        .slice(0, 25) // Limite de waypoints do Google Maps
+        .map(p => `${p.latitude},${p.longitude}`)
+        .join('|');
+
     return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsString}&travelmode=driving`;
 };
 
