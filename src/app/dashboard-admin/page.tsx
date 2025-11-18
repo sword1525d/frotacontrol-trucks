@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
-import { collection, query, where, getDocs, onSnapshot, orderBy, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
 import {
   Card,
   CardContent,
@@ -18,7 +18,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, RefreshCw, CheckCircle, PlayCircle, Clock, MapPin, Truck, User, LineChart, History, Calendar as CalendarIcon, ChevronDown } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, LineChart, Calendar as CalendarIcon } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -52,6 +52,7 @@ type Run = {
   vehicleId: string;
   startMileage: number;
   endMileage: number | null;
+
   startTime: FirebaseTimestamp;
   endTime: FirebaseTimestamp | null;
   status: RunStatus;
@@ -73,7 +74,6 @@ const AdminDashboardPage = () => {
   
   const [user, setUser] = useState<UserData | null>(null);
   const [activeRuns, setActiveRuns] = useState<Run[]>([]);
-  const [completedRuns, setCompletedRuns] = useState<Run[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   // Efeito para carregar dados do usuário da sessão
@@ -118,11 +118,9 @@ const AdminDashboardPage = () => {
   }, [firestore, user, toast]);
 
   // Função para buscar corridas completas (histórico)
-  const fetchCompletedRuns = useCallback(async () => {
+  const fetchCompletedRuns = useCallback(async (): Promise<Run[]> => {
     if (!firestore || !user) return [];
     
-    // Simplifica a consulta para evitar a necessidade de um índice composto complexo.
-    // A ordenação será feita no lado do cliente.
     const runsQuery = query(
         collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
         where('status', '==', 'COMPLETED')
@@ -145,11 +143,11 @@ const AdminDashboardPage = () => {
   }
 
   return (
-    <div className="flex items-center justify-center min-h-screen bg-gray-100 dark:bg-gray-900">
-      <div className="container mx-auto p-4 sm:p-6 lg:p-8 bg-background rounded-2xl shadow-xl border w-full max-w-7xl">
-       <Header />
+    <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-black">
+      <Header />
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
        <Tabs defaultValue="realtime" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto">
+        <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto mb-6">
           <TabsTrigger value="realtime"><PlayCircle className="mr-2"/> Em Tempo Real</TabsTrigger>
           <TabsTrigger value="history"><LineChart className="mr-2"/> Histórico e Análise</TabsTrigger>
         </TabsList>
@@ -160,7 +158,7 @@ const AdminDashboardPage = () => {
             <HistoryDashboard fetchCompletedRuns={fetchCompletedRuns} />
         </TabsContent>
       </Tabs>
-      </div>
+      </main>
     </div>
   );
 };
@@ -184,14 +182,16 @@ const Header = () => {
 
 
     return (
-     <header className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-bold text-primary">Dashboard de Acompanhamento</h1>
-          <p className="text-muted-foreground">
-            {format(time, "eeee, dd 'de' MMMM 'de' yyyy, HH:mm", { locale: ptBR })}
+     <header className="flex-shrink-0 bg-background/75 backdrop-blur-lg border-b sticky top-0 z-10 px-4 sm:px-6 lg:px-8">
+       <div className="flex h-16 items-center justify-between">
+         <div>
+          <h1 className="text-xl font-bold text-primary">Dashboard de Acompanhamento</h1>
+          <p className="text-sm text-muted-foreground">
+            {format(time, "eeee, dd 'de' MMMM, HH:mm", { locale: ptBR })}
           </p>
         </div>
          <Button onClick={handleLogout} variant="outline">Sair</Button>
+       </div>
       </header>
     );
 };
@@ -204,7 +204,7 @@ const RealTimeDashboard = ({ activeRuns, isLoading }: { activeRuns: Run[], isLoa
   }
   if (activeRuns.length === 0) {
     return (
-        <Card className="text-center p-8 mt-6">
+        <Card className="text-center p-8 mt-6 max-w-2xl mx-auto">
             <CardHeader>
                 <CardTitle>Nenhum acompanhamento ativo</CardTitle>
                 <CardDescription>Não há motoristas em rota no momento.</CardDescription>
@@ -214,7 +214,7 @@ const RealTimeDashboard = ({ activeRuns, isLoading }: { activeRuns: Run[], isLoa
   }
   
   return (
-      <Accordion type="single" collapsible className="w-full space-y-4 mt-6" defaultValue={activeRuns[0]?.id}>
+      <Accordion type="single" collapsible className="w-full space-y-4 max-w-4xl mx-auto" defaultValue={activeRuns[0]?.id}>
         {activeRuns.map(run => <RunAccordionItem key={run.id} run={run} />)}
       </Accordion>
   );
@@ -359,33 +359,33 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
 
 
     return (
-        <div className="space-y-6 mt-6">
-            <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">Análise de Corridas</h2>
+        <div className="space-y-6">
+             <div className="flex justify-between items-center">
+                <h2 className="text-2xl font-bold">Análise de Desempenho</h2>
                 <DateFilter date={date} setDate={setDate} />
             </div>
-
+            
             {/* KPIs */}
             <div className="grid gap-4 md:grid-cols-3">
                 <KpiCard title="Corridas Concluídas" value={kpis.totalRuns.toString()} />
-                <KpiCard title="Distância Total" value={`${kpis.totalDistance.toFixed(1)} km`} />
-                <KpiCard title="Tempo Médio de Corrida" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
+                <KpiCard title="Distância Total Percorrida" value={`${kpis.totalDistance.toFixed(1)} km`} />
+                <KpiCard title="Duração Média" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
             </div>
             
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-6 md:grid-cols-5">
                  {/* Chart */}
-                <Card>
+                <Card className="md:col-span-3">
                     <CardHeader>
                         <CardTitle>Corridas nos Últimos 7 Dias</CardTitle>
                         <CardDescription>Número de corridas concluídas por dia.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {isLoading ? <div className="flex justify-center items-center h-[250px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
-                        <ResponsiveContainer width="100%" height={250}>
+                      {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                        <ResponsiveContainer width="100%" height={300}>
                             <BarChart data={chartData}>
                                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <Tooltip />
+                                <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))'}}/>
                                 <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>}
@@ -393,25 +393,25 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
                 </Card>
 
                 {/* Runs Table */}
-                <Card>
+                <Card className="md:col-span-2">
                     <CardHeader>
-                        <CardTitle>Histórico de Corridas</CardTitle>
-                        <CardDescription>Lista das corridas concluídas no período.</CardDescription>
+                        <CardTitle>Histórico Recente</CardTitle>
+                        <CardDescription>Corridas concluídas no período selecionado.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                      {isLoading ? <div className="flex justify-center items-center h-[250px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
-                        <div className="overflow-auto max-h-[250px]">
+                      {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                        <div className="overflow-auto max-h-[300px]">
                             <Table>
                                 <TableHeader>
                                     <TableRow>
                                         <TableHead>Motorista</TableHead>
                                         <TableHead>Veículo</TableHead>
-                                        <TableHead>Duração</TableHead>
-                                        <TableHead>Distância</TableHead>
+                                        <TableHead className="text-right">Duração</TableHead>
+                                        <TableHead className="text-right">Distância</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
-                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} />) : <TableRow><TableCell colSpan={4} className="text-center">Nenhuma corrida encontrada</TableCell></TableRow>}
+                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
                                 </TableBody>
                             </Table>
                         </div>}
@@ -426,11 +426,11 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
 
 const KpiCard = ({ title, value }: { title: string, value: string }) => (
     <Card>
-        <CardHeader>
-            <CardTitle className="text-sm font-medium text-muted-foreground">{title}</CardTitle>
+        <CardHeader className="pb-2">
+            <CardTitle className="text-base font-medium text-muted-foreground">{title}</CardTitle>
         </CardHeader>
         <CardContent>
-            <div className="text-3xl font-bold">{value}</div>
+            <div className="text-2xl font-bold">{value}</div>
         </CardContent>
     </Card>
 );
@@ -441,10 +441,13 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
 
     return (
         <TableRow>
-            <TableCell className="font-medium">{run.driverName}</TableCell>
+            <TableCell>
+                <div className="font-medium">{run.driverName}</div>
+                <div className="text-xs text-muted-foreground">{run.endTime ? format(new Date(run.endTime.seconds * 1000), 'dd/MM/yy HH:mm') : ''}</div>
+            </TableCell>
             <TableCell>{run.vehicleId}</TableCell>
-            <TableCell>{duration} min</TableCell>
-            <TableCell>{distance.toFixed(1)} km</TableCell>
+            <TableCell className="text-right">{duration} min</TableCell>
+            <TableCell className="text-right">{distance.toFixed(1)} km</TableCell>
         </TableRow>
     );
 };
@@ -455,20 +458,20 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
           <Button
             id="date"
             variant={"outline"}
-            className="w-[260px] justify-start text-left font-normal"
+            className="w-[280px] justify-start text-left font-normal"
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
               date.to ? (
                 <>
-                  {format(date.from, "LLL dd, y")} -{" "}
-                  {format(date.to, "LLL dd, y")}
+                  {format(date.from, "dd/MM/y", { locale: ptBR })} -{" "}
+                  {format(date.to, "dd/MM/y", { locale: ptBR })}
                 </>
               ) : (
-                format(date.from, "LLL dd, y")
+                format(date.from, "dd/MM/y", { locale: ptBR })
               )
             ) : (
-              <span>Selecione uma data</span>
+              <span>Selecione um período</span>
             )}
           </Button>
         </PopoverTrigger>
@@ -480,12 +483,10 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
             selected={date}
             onSelect={setDate}
             numberOfMonths={2}
+            locale={ptBR}
           />
         </PopoverContent>
     </Popover>
 );
 
 export default AdminDashboardPage;
-
-    
-    
