@@ -136,11 +136,11 @@ export default function AdminPage() {
 
 
   useEffect(() => {
-    fetchSectors(selectedCompanyUserForm, setSectorsUser, () => userForm.setValue('sectorId', ''));
+    fetchSectors(selectedCompanyUserForm, setSectorsUser, () => userForm.resetField('sectorId'));
   }, [selectedCompanyUserForm, firestore, userForm]);
 
   useEffect(() => {
-    fetchSectors(selectedCompanyVehicleForm, setSectorsVehicle, () => vehicleForm.setValue('sectorId', ''));
+    fetchSectors(selectedCompanyVehicleForm, setSectorsVehicle, () => vehicleForm.resetField('sectorId'));
   }, [selectedCompanyVehicleForm, firestore, vehicleForm]);
 
 
@@ -166,7 +166,7 @@ export default function AdminPage() {
       const companyRef = doc(firestore, 'companies', data.companyId);
       await setDoc(companyRef, { name: data.companyName });
       toast({ title: 'Sucesso', description: 'Empresa cadastrada!' });
-      companyForm.reset();
+      companyForm.reset({ companyId: '', companyName: ''});
       fetchCompanies(); // Refresh companies list
     });
   };
@@ -177,7 +177,7 @@ export default function AdminPage() {
       const sectorRef = doc(firestore, `companies/${data.companyId}/sectors`, data.sectorId);
       await setDoc(sectorRef, { name: data.sectorName });
       toast({ title: 'Sucesso', description: 'Setor cadastrado!' });
-      sectorForm.reset();
+      sectorForm.reset({ companyId: '', sectorId: '', sectorName: ''});
     });
   };
   
@@ -209,7 +209,7 @@ export default function AdminPage() {
         // 3. Create user document in Firestore
         const userRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
         await setDoc(userRef, {
-            name: data.userName,
+            name: data.userName.toUpperCase(),
             truck: data.isTruckDriver,
             // Security: We don't store the password in Firestore. Auth handles it.
         });
@@ -260,7 +260,7 @@ export default function AdminPage() {
                 name="companyId"
                 control={sectorForm.control}
                 render={({ field }) => (
-                  <Select onValueChange={field.onChange} value={field.value} disabled={isLoadingCompanies}>
+                  <Select onValueChange={field.onChange} value={field.value || ''} disabled={isLoadingCompanies}>
                     <SelectTrigger>
                       <SelectValue placeholder={isLoadingCompanies ? "Carregando..." : "Selecione a Empresa"} />
                     </SelectTrigger>
