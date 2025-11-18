@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/card';
 import { useToast } from '@/hooks/use-toast';
 import { ArrowLeft, Loader2, Plus, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
+import { Separator } from '@/components/ui/separator';
 
 type UserData = {
   id: string;
@@ -57,7 +58,6 @@ export default function TruckRunPage() {
   const [newPoint, setNewPoint] = useState('');
   const [isLoading, setIsLoading] = useState(true);
 
-  // Recupera dados do usuário do localStorage
   useEffect(() => {
     const storedUser = localStorage.getItem('user');
     const companyId = localStorage.getItem('companyId');
@@ -76,7 +76,6 @@ export default function TruckRunPage() {
     }
   }, [router, toast]);
   
-  // Busca veículos
   useEffect(() => {
     if (!firestore || !user) return;
 
@@ -108,14 +107,14 @@ export default function TruckRunPage() {
     document.querySelector('meta[name="theme-color"]')?.setAttribute('content', companyStyles.themeColor);
     document.body.style.backgroundColor = companyStyles.themeColor;
     return () => {
-      document.body.style.backgroundColor = ''; // Reset on unmount
+      document.body.style.backgroundColor = '';
     }
   }, [companyStyles]);
 
   const handleAddPoint = () => {
     if (newPoint && !stopPoints.includes(newPoint)) {
       setStopPoints(prev => [...prev, newPoint]);
-      setNewPoint(''); // Limpa o select
+      setNewPoint('');
     } else if (stopPoints.includes(newPoint)) {
       toast({ variant: "destructive", description: "Este ponto já foi adicionado." });
     }
@@ -142,7 +141,6 @@ export default function TruckRunPage() {
        toast({ variant: 'destructive', title: 'Erro', description: 'Preencha todos os campos e adicione pelo menos um ponto de parada.' });
        return;
     }
-    // Lógica para iniciar a corrida será adicionada aqui
     console.log({selectedVehicle, mileage, stopPoints});
     toast({ title: 'Sucesso', description: 'Acompanhamento iniciado!' });
   }
@@ -165,14 +163,12 @@ export default function TruckRunPage() {
         <div className="w-8"></div>
       </header>
 
-      <main className="flex-1 bg-gray-100 rounded-t-3xl p-4 mt-[-20px] shadow-lg overflow-y-auto">
+      <main className="flex-1 bg-gray-100 rounded-t-3xl p-4 mt-[-20px] shadow-lg overflow-y-auto space-y-6">
         
         {/* Informações do Veículo */}
-        <Card className={`${companyStyles.borderColor} border-l-4 mb-4`}>
-          <CardHeader>
-            <CardTitle>Informações do Veículo</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
+        <section>
+          <h2 className="text-xl font-bold text-gray-800 mb-4">Informações do Veículo</h2>
+          <div className="space-y-4">
             <div className="space-y-1">
               <Label htmlFor="veiculo">Veículo</Label>
               <Select value={selectedVehicle} onValueChange={setSelectedVehicle}>
@@ -188,61 +184,58 @@ export default function TruckRunPage() {
               <Label htmlFor="quilometragem">Quilometragem Atual</Label>
               <Input id="quilometragem" type="number" placeholder="KM atual do veículo" value={mileage} onChange={e => setMileage(e.target.value)} />
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </section>
+
+        <Separator />
 
         {/* Adicionar Pontos */}
-        <Card className="mb-4">
-           <CardHeader>
-            <CardTitle>Adicionar Pontos de Parada</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-1 mb-4">
-              <Label htmlFor="novo-ponto">Ponto de Parada</Label>
-              <Select value={newPoint} onValueChange={setNewPoint}>
-                <SelectTrigger id="novo-ponto">
-                  <SelectValue placeholder="Selecione um ponto" />
-                </SelectTrigger>
-                <SelectContent>
-                  {PREDEFINED_STOP_POINTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
-                </SelectContent>
-              </Select>
+        <section>
+           <h2 className="text-xl font-bold text-gray-800 mb-4">Pontos de Parada</h2>
+            <div className="space-y-4">
+                <div className="space-y-1">
+                  <Label htmlFor="novo-ponto">Adicionar Ponto</Label>
+                  <Select value={newPoint} onValueChange={setNewPoint}>
+                    <SelectTrigger id="novo-ponto">
+                      <SelectValue placeholder="Selecione um ponto da lista" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {PREDEFINED_STOP_POINTS.map(p => <SelectItem key={p} value={p}>{p}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <Button className="w-full" onClick={handleAddPoint}><Plus className="mr-2 h-4 w-4"/> Adicionar Ponto</Button>
             </div>
-            <Button className="w-full" onClick={handleAddPoint}><Plus className="mr-2 h-4 w-4"/> Adicionar Ponto</Button>
-          </CardContent>
-        </Card>
+        </section>
 
         {/* Lista de Pontos */}
         {stopPoints.length > 0 && (
-          <Card className="mb-4">
-             <CardHeader>
-                <CardTitle>Pontos Adicionados ({stopPoints.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-                <ul className="space-y-2">
-                    {stopPoints.map((point, index) => (
-                        <li key={index} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg group">
-                           <span className="font-medium text-gray-800">{index + 1}. {point}</span>
-                           <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'up')} disabled={index === 0}>
-                                  <ArrowUp className="h-4 w-4"/>
-                              </Button>
-                               <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'down')} disabled={index === stopPoints.length - 1}>
-                                  <ArrowDown className="h-4 w-4"/>
-                              </Button>
-                              <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemovePoint(index)}>
-                                  <Trash2 className="text-destructive h-4 w-4"/>
-                              </Button>
-                           </div>
-                        </li>
-                    ))}
-                </ul>
-            </CardContent>
-          </Card>
+          <section>
+            <h3 className="text-lg font-semibold text-gray-700 mb-3">Rota ({stopPoints.length})</h3>
+            <ul className="space-y-2">
+                {stopPoints.map((point, index) => (
+                    <li key={index} className="flex items-center justify-between p-3 bg-white rounded-lg shadow-sm group">
+                       <span className="font-medium text-gray-800">{index + 1}. {point}</span>
+                       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'up')} disabled={index === 0}>
+                              <ArrowUp className="h-4 w-4"/>
+                          </Button>
+                           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleMovePoint(index, 'down')} disabled={index === stopPoints.length - 1}>
+                              <ArrowDown className="h-4 w-4"/>
+                          </Button>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => handleRemovePoint(index)}>
+                              <Trash2 className="text-destructive h-4 w-4"/>
+                          </Button>
+                       </div>
+                    </li>
+                ))}
+            </ul>
+          </section>
         )}
+        <div className="h-20"></div>
 
         {/* Botão para Iniciar Acompanhamento */}
-        <div className="mt-6 sticky bottom-4">
+        <div className="fixed bottom-0 left-0 right-0 p-4 bg-gray-100 border-t border-gray-200">
           <Button 
             className={`w-full text-lg h-14 shadow-lg ${companyStyles.bgColor}`} 
             onClick={handleStartRun}
