@@ -60,6 +60,7 @@ const userSchema = z.object({
   userMatricula: z.string().min(1, 'Matrícula é obrigatória'),
   userPassword: z.string().min(1, 'A senha é obrigatória'),
   isTruckDriver: z.boolean().default(false),
+  isAdmin: z.boolean().default(false),
 });
 
 type CompanyFormValues = z.infer<typeof companySchema>;
@@ -77,6 +78,7 @@ const defaultUserValues = {
   userMatricula: '',
   userPassword: '',
   isTruckDriver: false,
+  isAdmin: false,
 };
 
 const defaultVehicleValues = {
@@ -222,6 +224,7 @@ export default function AdminPage() {
         await setDoc(userRef, {
             name: data.userName.toUpperCase(),
             truck: data.isTruckDriver,
+            isAdmin: data.isAdmin,
             // Security: We don't store the password in Firestore. Auth handles it.
         });
 
@@ -435,6 +438,21 @@ export default function AdminPage() {
                 <Label htmlFor="isTruckDriver">É motorista de caminhão (truck)?</Label>
               </div>
 
+              <div className="flex items-center space-x-2">
+                <Controller
+                    name="isAdmin"
+                    control={userForm.control}
+                    render={({ field }) => (
+                        <Switch
+                            id="isAdmin"
+                            checked={field.value}
+                            onCheckedChange={field.onChange}
+                        />
+                    )}
+                />
+                <Label htmlFor="isAdmin">É ADM?</Label>
+              </div>
+
               <Button type="submit" disabled={isSubmitting['usuário']}>
                 {renderLoading('usuário')} Cadastrar Usuário
               </Button>
@@ -446,5 +464,3 @@ export default function AdminPage() {
     </div>
   );
 }
-
-    
