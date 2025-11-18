@@ -262,7 +262,7 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
 
     const url = `https://www.google.com/maps/dir/?api=1&waypoints=${waypoints}&travelmode=driving`;
     
-    window.open(url, '_blank');
+    window.open(url, 'mapPopup', 'width=800,height=600');
   };
 
 
@@ -489,7 +489,7 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
 
         const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypointsString}&travelmode=driving`;
         
-        window.open(url, '_blank');
+        window.open(url, 'mapPopup', 'width=800,height=600');
     };
 
     return (
