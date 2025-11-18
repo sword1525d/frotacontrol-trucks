@@ -1,7 +1,7 @@
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
-import { collection, query, where, getDocs, onSnapshot } from 'firebase/firestore';
+import { collection, query, where, getDocs, onSnapshot, orderBy } from 'firebase/firestore';
 import {
   Card,
   CardContent,
@@ -163,15 +163,15 @@ const AdminDashboardPage = () => {
 
         const runsQuery = query(
             collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
-            where('status', '==', 'COMPLETED')
+            where('status', '==', 'COMPLETED'),
+            orderBy('endTime', 'desc')
         );
 
         try {
             const querySnapshot = await getDocs(runsQuery);
             const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
-            // Ordena os resultados no cliente
-            return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
-        } catch (error: any) => {
+            return runs;
+        } catch (error: any) {
             console.error("Error fetching completed runs: ", error);
             toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar o histórico. Tente recarregar a página.' });
             return [];
@@ -186,7 +186,7 @@ const AdminDashboardPage = () => {
   return (
     <div className="flex flex-col min-h-screen bg-gray-50 dark:bg-black">
       <Header />
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 space-y-6">
        <Tabs defaultValue="realtime" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-lg mx-auto mb-6">
           <TabsTrigger value="realtime"><PlayCircle className="mr-2"/> Em Tempo Real</TabsTrigger>
