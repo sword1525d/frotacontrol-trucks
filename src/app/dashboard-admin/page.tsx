@@ -10,6 +10,14 @@ import {
   CardTitle,
 } from '@/components/ui/card';
 import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+  DialogClose,
+} from '@/components/ui/dialog';
+import {
   Accordion,
   AccordionContent,
   AccordionItem,
@@ -18,7 +26,7 @@ import {
 import { Progress } from '@/components/ui/progress';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, LineChart, Calendar as CalendarIcon } from 'lucide-react';
+import { Loader2, PlayCircle, CheckCircle, Clock, MapPin, Truck, User, LineChart, Calendar as CalendarIcon, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -29,6 +37,8 @@ import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { DateRange } from 'react-day-picker';
+import { LoadScript, GoogleMap, Polyline } from '@react-google-maps/api';
+
 
 // --- Tipos ---
 type StopStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'CANCELED';
@@ -46,17 +56,23 @@ type Stop = {
   departureTime: FirebaseTimestamp | null;
 };
 
+type LocationPoint = {
+  latitude: number;
+  longitude: number;
+  timestamp: FirebaseTimestamp;
+};
+
 type Run = {
   id: string;
   driverName: string;
   vehicleId: string;
   startMileage: number;
   endMileage: number | null;
-
   startTime: FirebaseTimestamp;
   endTime: FirebaseTimestamp | null;
   status: RunStatus;
   stops: Stop[];
+  locationHistory?: LocationPoint[];
 };
 
 type UserData = {
@@ -118,25 +134,26 @@ const AdminDashboardPage = () => {
   }, [firestore, user, toast]);
 
   // Função para buscar corridas completas (histórico)
-  const fetchCompletedRuns = useCallback(async (): Promise<Run[]> => {
-    if (!firestore || !user) return [];
-    
-    const runsQuery = query(
-        collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
-        where('status', '==', 'COMPLETED')
-    );
+    const fetchCompletedRuns = useCallback(async (): Promise<Run[]> => {
+        if (!firestore || !user) return [];
 
-    try {
-        const querySnapshot = await getDocs(runsQuery);
-        const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
-        // Ordena os resultados no cliente
-        return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
-    } catch (error: any) {
-        console.error("Error fetching completed runs: ", error);
-        toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar o histórico. Tente recarregar a página.' });
-        return [];
-    }
-  }, [firestore, user, toast]);
+        const runsQuery = query(
+            collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
+            where('status', '==', 'COMPLETED')
+        );
+
+        try {
+            const querySnapshot = await getDocs(runsQuery);
+            const runs = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
+            // Ordena os resultados no cliente
+            return runs.sort((a, b) => (b.endTime?.seconds || 0) - (a.endTime?.seconds || 0));
+        } catch (error: any) {
+            console.error("Error fetching completed runs: ", error);
+            toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar o histórico. Tente recarregar a página.' });
+            return [];
+        }
+    }, [firestore, user, toast]);
+
 
   if (!user) {
      return <div className="flex justify-center items-center h-screen"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
@@ -300,6 +317,7 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
       from: startOfDay(new Date()),
       to: endOfDay(new Date()),
     });
+    const [selectedRunForMap, setSelectedRunForMap] = useState<Run | null>(null);
 
     useEffect(() => {
         setIsLoading(true);
@@ -359,66 +377,79 @@ const HistoryDashboard = ({ fetchCompletedRuns }: { fetchCompletedRuns: () => Pr
 
 
     return (
-        <div className="space-y-6">
-             <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold">Análise de Desempenho</h2>
-                <DateFilter date={date} setDate={setDate} />
-            </div>
-            
-            {/* KPIs */}
-            <div className="grid gap-4 md:grid-cols-3">
-                <KpiCard title="Corridas Concluídas" value={kpis.totalRuns.toString()} />
-                <KpiCard title="Distância Total Percorrida" value={`${kpis.totalDistance.toFixed(1)} km`} />
-                <KpiCard title="Duração Média" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
-            </div>
-            
-            <div className="grid gap-6 md:grid-cols-5">
-                 {/* Chart */}
-                <Card className="md:col-span-3">
-                    <CardHeader>
-                        <CardTitle>Corridas nos Últimos 7 Dias</CardTitle>
-                        <CardDescription>Número de corridas concluídas por dia.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
-                        <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={chartData}>
-                                <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
-                                <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))'}}/>
-                                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
-                            </BarChart>
-                        </ResponsiveContainer>}
-                    </CardContent>
-                </Card>
+        <Dialog onOpenChange={(isOpen) => !isOpen && setSelectedRunForMap(null)}>
+            <div className="space-y-6">
+                <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
+                    <h2 className="text-2xl font-bold">Análise de Desempenho</h2>
+                    <DateFilter date={date} setDate={setDate} />
+                </div>
+                
+                {/* KPIs */}
+                <div className="grid gap-4 md:grid-cols-3">
+                    <KpiCard title="Corridas Concluídas" value={kpis.totalRuns.toString()} />
+                    <KpiCard title="Distância Total Percorrida" value={`${kpis.totalDistance.toFixed(1)} km`} />
+                    <KpiCard title="Duração Média" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
+                </div>
+                
+                <div className="grid gap-6 lg:grid-cols-5">
+                    {/* Chart */}
+                    <Card className="lg:col-span-3">
+                        <CardHeader>
+                            <CardTitle>Corridas nos Últimos 7 Dias</CardTitle>
+                            <CardDescription>Número de corridas concluídas por dia.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                        {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                            <ResponsiveContainer width="100%" height={300}>
+                                <BarChart data={chartData}>
+                                    <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                    <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
+                                    <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))'}}/>
+                                    <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
+                                </BarChart>
+                            </ResponsiveContainer>}
+                        </CardContent>
+                    </Card>
 
-                {/* Runs Table */}
-                <Card className="md:col-span-2">
-                    <CardHeader>
-                        <CardTitle>Histórico Recente</CardTitle>
-                        <CardDescription>Corridas concluídas no período selecionado.</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
-                        <div className="overflow-auto max-h-[300px]">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Motorista</TableHead>
-                                        <TableHead>Veículo</TableHead>
-                                        <TableHead className="text-right">Duração</TableHead>
-                                        <TableHead className="text-right">Distância</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </div>}
-                    </CardContent>
-                </Card>
+                    {/* Runs Table */}
+                    <Card className="lg:col-span-2">
+                        <CardHeader>
+                            <CardTitle>Histórico Recente</CardTitle>
+                            <CardDescription>Corridas concluídas no período selecionado.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                        {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                            <div className="overflow-auto max-h-[300px]">
+                                <Table>
+                                    <TableHeader>
+                                        <TableRow>
+                                            <TableHead>Motorista</TableHead>
+                                            <TableHead>Veículo</TableHead>
+                                            <TableHead className="text-right">Duração</TableHead>
+                                            <TableHead className="text-right">Ação</TableHead>
+                                        </TableRow>
+                                    </TableHeader>
+                                    <TableBody>
+                                        {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onSelectRun={setSelectedRunForMap} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
+                                    </TableBody>
+                                </Table>
+                            </div>}
+                        </CardContent>
+                    </Card>
+                </div>
             </div>
-        </div>
+             {selectedRunForMap && (
+                <DialogContent className="max-w-4xl h-[80vh]">
+                    <DialogHeader>
+                        <DialogTitle>Trajeto da Corrida</DialogTitle>
+                        <DialogClose asChild>
+                            <Button variant="ghost" size="icon" className="absolute top-4 right-4"><X/></Button>
+                        </DialogClose>
+                    </DialogHeader>
+                    <RouteMap run={selectedRunForMap} />
+                </DialogContent>
+            )}
+        </Dialog>
     );
 };
 
@@ -435,10 +466,9 @@ const KpiCard = ({ title, value }: { title: string, value: string }) => (
     </Card>
 );
 
-const HistoryTableRow = ({ run }: { run: Run }) => {
+const HistoryTableRow = ({ run, onSelectRun }: { run: Run, onSelectRun: (run: Run) => void }) => {
     const duration = run.endTime && run.startTime ? Math.round((run.endTime.seconds - run.startTime.seconds) / 60) : 0;
-    const distance = run.endMileage && run.startMileage ? run.endMileage - run.startMileage : 0;
-
+    
     return (
         <TableRow>
             <TableCell>
@@ -447,7 +477,11 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
             </TableCell>
             <TableCell>{run.vehicleId}</TableCell>
             <TableCell className="text-right">{duration} min</TableCell>
-            <TableCell className="text-right">{distance.toFixed(1)} km</TableCell>
+             <TableCell className="text-right">
+                <DialogTrigger asChild>
+                    <Button variant="outline" size="sm" onClick={() => onSelectRun(run)}>Ver Trajeto</Button>
+                </DialogTrigger>
+            </TableCell>
         </TableRow>
     );
 };
@@ -458,7 +492,7 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
           <Button
             id="date"
             variant={"outline"}
-            className="w-[280px] justify-start text-left font-normal"
+            className="w-full sm:w-[280px] justify-start text-left font-normal"
           >
             <CalendarIcon className="mr-2 h-4 w-4" />
             {date?.from ? (
@@ -488,5 +522,52 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
         </PopoverContent>
     </Popover>
 );
+
+const RouteMap = ({ run }: { run: Run }) => {
+    const mapKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+
+    const path = useMemo(() => {
+        if (!run.locationHistory) return [];
+        return run.locationHistory.map(loc => ({
+            lat: loc.latitude,
+            lng: loc.longitude,
+        }));
+    }, [run.locationHistory]);
+
+    const center = useMemo(() => {
+        if (path.length > 0) {
+            return path[Math.floor(path.length / 2)];
+        }
+        return { lat: -15.77972, lng: -47.92972 }; // Fallback para Brasília
+    }, [path]);
+
+    if (!mapKey) {
+        return <div className="text-destructive text-center p-4">A chave da API do Google Maps não foi configurada.</div>;
+    }
+
+    if (!run.locationHistory || run.locationHistory.length === 0) {
+        return <div className="text-muted-foreground text-center p-4">Nenhum dado de trajeto disponível para esta corrida.</div>;
+    }
+
+    return (
+        <LoadScript googleMapsApiKey={mapKey}>
+            <GoogleMap
+                mapContainerClassName="w-full h-full rounded-md"
+                center={center}
+                zoom={14}
+            >
+                <Polyline
+                    path={path}
+                    options={{
+                        strokeColor: '#0F2954', // Cor primária
+                        strokeOpacity: 0.8,
+                        strokeWeight: 4,
+                    }}
+                />
+            </GoogleMap>
+        </LoadScript>
+    );
+};
+
 
 export default AdminDashboardPage;
