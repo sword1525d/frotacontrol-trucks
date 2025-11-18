@@ -122,21 +122,26 @@ const AdminDashboardPage = () => {
     if (!firestore || !user) return [];
     
     let runsQuery = query(
-      collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
-      where('status', '==', 'COMPLETED'),
-      orderBy('endTime', 'desc')
+        collection(firestore, `companies/${user.companyId}/sectors/${user.sectorId}/runs`),
+        where('status', '==', 'COMPLETED')
     );
       
     if (startDate && endDate) {
-       runsQuery = query(runsQuery, where('endTime', '>=', startDate), where('endTime', '<=', endDate));
+       const startTimestamp = Timestamp.fromDate(startDate);
+       const endTimestamp = Timestamp.fromDate(endDate);
+       runsQuery = query(runsQuery, where('endTime', '>=', startTimestamp), where('endTime', '<=', endTimestamp));
     }
+
+    // Add ordering after all filters
+    runsQuery = query(runsQuery, orderBy('endTime', 'desc'));
+
 
     try {
         const querySnapshot = await getDocs(runsQuery);
         return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
-    } catch (error) {
+    } catch (error: any) {
         console.error("Error fetching completed runs: ", error);
-        toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: 'Não foi possível carregar as corridas concluídas.' });
+        toast({ variant: 'destructive', title: 'Erro ao buscar histórico', description: error.message || 'Não foi possível carregar as corridas concluídas.' });
         return [];
     }
   }, [firestore, user, toast]);
