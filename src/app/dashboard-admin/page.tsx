@@ -73,6 +73,20 @@ type UserData = {
   sectorId: string;
 };
 
+const filterUniqueLocations = (locations: LocationPoint[]): LocationPoint[] => {
+  if (!locations || locations.length === 0) return [];
+  
+  const uniqueLocations: LocationPoint[] = [locations[0]];
+  for (let i = 1; i < locations.length; i++) {
+    const prev = locations[i-1];
+    const curr = locations[i];
+    if (curr.latitude !== prev.latitude || curr.longitude !== prev.longitude) {
+      uniqueLocations.push(curr);
+    }
+  }
+  return uniqueLocations;
+}
+
 // --- Componente Principal ---
 const AdminDashboardPage = () => {
   const { firestore } = useFirebase();
@@ -250,17 +264,31 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
   };
 
   const handleViewRealTimeRoute = () => {
-    if (!run.locationHistory || run.locationHistory.length < 1) {
+    const locations = run.locationHistory;
+    if (!locations || locations.length < 1) {
         alert('Ainda não há dados de localização para este trajeto.');
         return;
     }
+    
+    // Filter out consecutive duplicate points
+    const uniqueLocations = filterUniqueLocations(locations);
 
-    // Just show the path taken so far.
-    const waypoints = run.locationHistory
+    if (uniqueLocations.length < 1) {
+        alert('Não há dados de localização suficientes para exibir a rota.');
+        return;
+    }
+
+    const lastPoint = uniqueLocations[uniqueLocations.length - 1];
+    
+    // The "waypoints" parameter should be intermediate points, not start/end
+    const waypoints = uniqueLocations
+        .slice(0, -1) // Exclude the last point which will be the destination
         .map(p => `${p.latitude},${p.longitude}`)
         .join('|');
 
-    const url = `https://www.google.com/maps/dir/?api=1&waypoints=${waypoints}&travelmode=driving`;
+    // For a real-time path, we can just show the waypoints and let Google Maps connect them.
+    // The last point acts as the "destination" if we provide it separately, but for a simple path drawing, waypoints are enough.
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lastPoint.latitude},${lastPoint.longitude}&waypoints=${waypoints}&travelmode=driving`;
     
     window.open(url, 'mapPopup', 'width=800,height=600');
   };
@@ -469,25 +497,29 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
     const duration = run.endTime && run.startTime ? Math.round((run.endTime.seconds - run.startTime.seconds) / 60) : 0;
     
     const handleViewRoute = () => {
-        if (!run.locationHistory || run.locationHistory.length < 2) {
+        const locations = run.locationHistory;
+        if (!locations || locations.length < 2) {
             alert('Não há dados de trajeto suficientes para exibir a rota.');
             return;
         }
 
-        const origin = run.locationHistory[0];
-        const destination = run.locationHistory[run.locationHistory.length - 1];
-        
-        // Google Maps URL can handle about 8-10 waypoints. Let's select them evenly.
-        const waypoints = run.locationHistory.slice(1, -1);
-        const maxWaypoints = 8;
-        const step = Math.max(1, Math.floor(waypoints.length / maxWaypoints));
-        const selectedWaypoints = waypoints.filter((_, index) => index % step === 0);
+        // Filter out consecutive duplicate points
+        const uniqueLocations = filterUniqueLocations(locations);
 
-        const waypointsString = selectedWaypoints
+        if (uniqueLocations.length < 2) {
+            alert('Não há dados de trajeto suficientes para exibir a rota.');
+            return;
+        }
+
+        const origin = uniqueLocations[0];
+        const destination = uniqueLocations[uniqueLocations.length - 1];
+        
+        const waypoints = uniqueLocations
+            .slice(1, -1) // All points between start and end
             .map(p => `${p.latitude},${p.longitude}`)
             .join('|');
 
-        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypointsString}&travelmode=driving`;
+        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypoints}&travelmode=driving`;
         
         window.open(url, 'mapPopup', 'width=800,height=600');
     };
@@ -547,3 +579,5 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
 );
 
 export default AdminDashboardPage;
+
+    
