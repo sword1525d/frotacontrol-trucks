@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo } from 'react';
+import { useMemo, useEffect } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L, { LatLngExpression, LatLngBoundsExpression } from 'leaflet';
 import type { LocationPoint } from './page';
@@ -67,7 +67,7 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
   }
 
   return (
-    <MapContainer center={lastPosition} zoom={15} style={{ height: '100%', width: '100%' }} className="rounded-md">
+    <MapContainer center={lastPosition} zoom={15} style={{ height: '100%', width: '100%' }} className="rounded-md z-0">
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
