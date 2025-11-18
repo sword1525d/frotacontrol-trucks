@@ -24,40 +24,18 @@ const FitBounds = ({ bounds }: { bounds: LatLngBoundsExpression }) => {
   return null;
 };
 
-// Componente para recentralizar o mapa quando a última posição muda
-const RecenterAutomatically = ({ center }: { center: LatLngExpression }) => {
-    const map = useMap();
-    useEffect(() => {
-        map.setView(center, map.getZoom());
-    }, [map, center]);
-    return null;
-}
-
-
 interface RealTimeMapProps {
   locationHistory: LocationPoint[];
 }
 
-// Filtra locais para remover duplicatas consecutivas
-const filterUniqueLocations = (locations: LocationPoint[]): LocationPoint[] => {
-  if (!locations || locations.length === 0) return [];
-  const unique: LocationPoint[] = [locations[0]];
-  for (let i = 1; i < locations.length; i++) {
-    if (locations[i].latitude !== locations[i - 1].latitude || locations[i].longitude !== locations[i - 1].longitude) {
-      unique.push(locations[i]);
-    }
-  }
-  return unique;
-};
-
-
 export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
   const { positions, bounds, lastPosition } = useMemo(() => {
-    const uniqueLocations = filterUniqueLocations(locationHistory);
-    
-    const pos: LatLngExpression[] = uniqueLocations.map(p => [p.latitude, p.longitude]);
-    const bds: LatLngBoundsExpression | null = pos.length > 0 ? L.latLngBounds(pos) : null;
-    const lastPos: LatLngExpression | null = pos.length > 0 ? pos[pos.length - 1] : null;
+    if (!locationHistory || locationHistory.length === 0) {
+      return { positions: [], bounds: null, lastPosition: null };
+    }
+    const pos: LatLngExpression[] = locationHistory.map(p => [p.latitude, p.longitude]);
+    const bds: LatLngBoundsExpression = L.latLngBounds(pos);
+    const lastPos: LatLngExpression = pos[pos.length - 1];
 
     return { positions: pos, bounds: bds, lastPosition: lastPos };
   }, [locationHistory]);
@@ -69,7 +47,6 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
 
   return (
     <MapContainer 
-      key={`map-${locationHistory.length}`}
       center={lastPosition} 
       zoom={15} 
       style={{ height: '100%', width: '100%' }} 
@@ -79,10 +56,9 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
-      <Polyline positions={positions} color="blue" />
+      {positions.length > 0 && <Polyline positions={positions} color="blue" />}
       <Marker position={lastPosition} icon={truckIcon} />
       <FitBounds bounds={bounds} />
-      <RecenterAutomatically center={lastPosition} />
     </MapContainer>
   );
 }
