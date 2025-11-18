@@ -83,36 +83,13 @@ type VehicleStatus = Vehicle & {
   driverName?: string;
 }
 
-const createOptimizedGoogleMapsUrl = (locationHistory: LocationPoint[]) => {
+const createAppleMapsUrl = (locationHistory: LocationPoint[]) => {
   if (locationHistory.length < 2) return null;
 
-  const uniqueLocations = locationHistory.reduce((acc, point) => {
-    const lastPoint = acc[acc.length - 1];
-    if (!lastPoint || point.latitude !== lastPoint.latitude || point.longitude !== lastPoint.longitude) {
-      acc.push(point);
-    }
-    return acc;
-  }, [] as LocationPoint[]);
+  const origin = `${locationHistory[0].latitude},${locationHistory[0].longitude}`;
+  const destination = `${locationHistory[locationHistory.length - 1].latitude},${locationHistory[locationHistory.length - 1].longitude}`;
 
-  if (uniqueLocations.length < 2) return null;
-
-  const origin = `${uniqueLocations[0].latitude},${uniqueLocations[0].longitude}`;
-  const destination = `${uniqueLocations[uniqueLocations.length - 1].latitude},${uniqueLocations[uniqueLocations.length - 1].longitude}`;
-
-  const maxWaypoints = 25;
-  const waypoints = uniqueLocations.slice(1, -1);
-  let selectedWaypoints = waypoints;
-
-  if (waypoints.length > maxWaypoints) {
-    const interval = Math.floor(waypoints.length / (maxWaypoints -1));
-    selectedWaypoints = waypoints.filter((_, index) => index % interval === 0);
-  }
-
-  const waypointsString = selectedWaypoints
-    .map(p => `${p.latitude},${p.longitude}`)
-    .join('|');
-
-  return `https://www.google.com/maps/dir/?api=1&origin=${origin}&destination=${destination}&waypoints=${waypointsString}&travelmode=driving`;
+  return `https://maps.apple.com/?saddr=${origin}&daddr=${destination}&dirflg=d`;
 };
 
 
@@ -234,7 +211,7 @@ const AdminDashboardPage = () => {
             toast({ variant: 'destructive', title: 'Sem dados', description: 'Não há dados de localização para esta corrida.' });
             return;
         }
-        const url = createOptimizedGoogleMapsUrl(locationHistory);
+        const url = createAppleMapsUrl(locationHistory);
         openRouteInPopup(url);
     };
 
