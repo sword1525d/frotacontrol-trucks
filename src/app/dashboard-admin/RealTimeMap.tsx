@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useEffect } from 'react';
+import { useMemo, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap } from 'react-leaflet';
 import L, { LatLngExpression, LatLngBoundsExpression } from 'leaflet';
 import type { LocationPoint } from './page';
@@ -52,6 +52,8 @@ const filterUniqueLocations = (locations: LocationPoint[]): LocationPoint[] => {
 
 
 export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
+  const mapRef = useRef<L.Map | null>(null);
+  
   const { positions, bounds, lastPosition } = useMemo(() => {
     const uniqueLocations = filterUniqueLocations(locationHistory);
     
@@ -62,12 +64,31 @@ export default function RealTimeMap({ locationHistory }: RealTimeMapProps) {
     return { positions: pos, bounds: bds, lastPosition: lastPos };
   }, [locationHistory]);
   
+  // Cleanup function to remove map instance
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
+  
   if (!lastPosition || !bounds) {
     return <div className="flex items-center justify-center h-full text-muted-foreground">Aguardando dados de localização...</div>;
   }
 
   return (
-    <MapContainer center={lastPosition} zoom={15} style={{ height: '100%', width: '100%' }} className="rounded-md z-0">
+    <MapContainer 
+      key={`map-${locationHistory.length}`}
+      center={lastPosition} 
+      zoom={15} 
+      style={{ height: '100%', width: '100%' }} 
+      className="rounded-md z-0"
+      whenCreated={(map) => {
+        mapRef.current = map;
+      }}
+    >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
