@@ -4,7 +4,7 @@ import { Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useEffect, useState, useCallback } from 'react';
 import { useFirebase } from '@/firebase';
-import { doc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, updateDoc } from 'firebase/firestore';
 
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -122,6 +122,8 @@ function ActiveRunContent() {
     
     const stopsArray = Array.isArray(run.stops) ? run.stops : [];
     if (stopsArray.length === 0 || stopsArray[stopIndex].status !== 'PENDING') return;
+    
+    const arrivalTime = new Date(); // Use client time
 
     try {
       const companyId = localStorage.getItem('companyId');
@@ -130,19 +132,21 @@ function ActiveRunContent() {
       
       const updatedStops = [...stopsArray];
       updatedStops[stopIndex].status = 'IN_PROGRESS';
-      updatedStops[stopIndex].arrivalTime = serverTimestamp();
+      updatedStops[stopIndex].arrivalTime = arrivalTime;
 
       await updateDoc(runRef, {
         stops: updatedStops,
       });
       
-      const localArrivalTime = new Date();
       setRun(prevRun => {
           if (!prevRun) return null;
-          const newStops = Array.isArray(prevRun.stops) ? [...prevRun.stops] : [];
-          if (newStops[stopIndex]) {
-            newStops[stopIndex] = { ...newStops[stopIndex], status: 'IN_PROGRESS', arrivalTime: localArrivalTime };
-          }
+          // Create a new stops array to ensure React detects the change
+          const newStops = prevRun.stops.map((stop, index) => {
+              if (index === stopIndex) {
+                  return { ...stop, status: 'IN_PROGRESS' as StopStatus, arrivalTime: arrivalTime };
+              }
+              return stop;
+          });
           return { ...prevRun, stops: newStops };
       });
       
@@ -168,20 +172,22 @@ function ActiveRunContent() {
       return;
     }
     
+    const departureTime = new Date(); // Use client time
+
     try {
       const companyId = localStorage.getItem('companyId');
       const sectorId = localStorage.getItem('sectorId');
       const runRef = doc(firestore, `companies/${companyId}/sectors/${sectorId}/runs`, runId);
 
-      const updatedStops = [...stopsArray];
       const finalOccupied = Number(occupied);
       const finalEmpty = Number(empty);
       const finalMileage = Number(mileage);
 
+      const updatedStops = [...stopsArray];
       updatedStops[stopIndex] = {
         ...updatedStops[stopIndex],
         status: 'COMPLETED',
-        departureTime: serverTimestamp(),
+        departureTime: departureTime,
         collectedOccupiedCars: finalOccupied,
         collectedEmptyCars: finalEmpty,
         mileageAtStop: finalMileage,
@@ -191,20 +197,21 @@ function ActiveRunContent() {
         stops: updatedStops,
       });
 
-      const localDepartureTime = new Date();
       setRun(prevRun => {
           if (!prevRun) return null;
-          const newStops = Array.isArray(prevRun.stops) ? [...prevRun.stops] : [];
-          if(newStops[stopIndex]) {
-            newStops[stopIndex] = { 
-                ...newStops[stopIndex], 
-                status: 'COMPLETED', 
-                departureTime: localDepartureTime,
-                collectedOccupiedCars: finalOccupied,
-                collectedEmptyCars: finalEmpty,
-                mileageAtStop: finalMileage
-            };
-          }
+          const newStops = prevRun.stops.map((stop, index) => {
+            if (index === stopIndex) {
+                return {
+                    ...stop,
+                    status: 'COMPLETED' as StopStatus,
+                    departureTime: departureTime,
+                    collectedOccupiedCars: finalOccupied,
+                    collectedEmptyCars: finalEmpty,
+                    mileageAtStop: finalMileage,
+                };
+            }
+            return stop;
+          });
           return { ...prevRun, stops: newStops };
       });
       
@@ -243,7 +250,7 @@ function ActiveRunContent() {
 
         await updateDoc(runRef, {
             status: 'COMPLETED',
-            endTime: serverTimestamp(),
+            endTime: new Date(), // Use client time
             endMileage: lastStop.mileageAtStop
         });
 
@@ -270,127 +277,125 @@ function ActiveRunContent() {
   const stopsArray = Array.isArray(run.stops) ? run.stops : [];
 
   return (
-    <div className="flex flex-col min-h-screen bg-gray-100 dark:bg-gray-900">
-       <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
+    <div className="container mx-auto p-4 sm:p-6 lg:p-8 max-w-4xl">
         <div className="flex items-center gap-4 mb-6">
-          <Button variant="outline" size="icon" onClick={() => router.push('/dashboard-truck')}>
-            <ArrowLeft />
-          </Button>
-          <div>
-            <h1 className="text-2xl font-bold">Acompanhamento Ativo</h1>
-            <p className="text-muted-foreground">Veículo: {run.vehicleId} | Motorista: {run.driverName}</p>
-          </div>
+            <Button variant="outline" size="icon" onClick={() => router.push('/dashboard-truck')}>
+                <ArrowLeft />
+            </Button>
+            <div>
+                <h1 className="text-2xl font-bold">Acompanhamento Ativo</h1>
+                <p className="text-muted-foreground">Veículo: {run.vehicleId} | Motorista: {run.driverName}</p>
+            </div>
         </div>
 
         <main className="space-y-4">
-          {stopsArray.map((stop, index) => {
-              const stopNameIdentifier = stop.name.replace(/\s+/g, '-');
-              const isPending = stop.status === 'PENDING';
-              const isInProgress = stop.status === 'IN_PROGRESS';
-              const isCompleted = stop.status === 'COMPLETED';
-              
-              const canStartThisStop = isPending && (index === 0 || (stopsArray[index-1] && stopsArray[index-1].status === 'COMPLETED'));
-              
-              return (
-                  <Card key={index} className={isCompleted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-card'}>
-                      <CardHeader>
-                          <CardTitle className="flex items-center justify-between">
-                              <span className="flex items-center gap-2">
-                                  {isCompleted ? <CheckCircle2 className="text-green-600"/> : <Milestone className="text-muted-foreground"/>}
-                                  {stop.name}
-                              </span>
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
-                                  isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
-                                  isInProgress ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
-                                  'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
-                              }`}>
-                                  {isCompleted ? 'CONCLUÍDO' : isInProgress ? 'EM ANDAMENTO' : 'PENDENTE'}
-                              </span>
-                          </CardTitle>
-                      </CardHeader>
+            {stopsArray.map((stop, index) => {
+                const stopNameIdentifier = stop.name.replace(/\s+/g, '-');
+                const isPending = stop.status === 'PENDING';
+                const isInProgress = stop.status === 'IN_PROGRESS';
+                const isCompleted = stop.status === 'COMPLETED';
+                
+                const canStartThisStop = isPending && (index === 0 || (stopsArray[index-1] && stopsArray[index-1].status === 'COMPLETED'));
+                
+                return (
+                    <Card key={index} className={isCompleted ? 'bg-green-50 dark:bg-green-900/20 border-green-200 dark:border-green-800' : 'bg-card'}>
+                        <CardHeader>
+                            <CardTitle className="flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                    {isCompleted ? <CheckCircle2 className="text-green-600"/> : <Milestone className="text-muted-foreground"/>}
+                                    {stop.name}
+                                </span>
+                                <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                                    isCompleted ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200' : 
+                                    isInProgress ? 'bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200' :
+                                    'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-200'
+                                }`}>
+                                    {isCompleted ? 'CONCLUÍDO' : isInProgress ? 'EM ANDAMENTO' : 'PENDENTE'}
+                                </span>
+                            </CardTitle>
+                        </CardHeader>
 
-                      {isInProgress && (
-                          <CardContent className="space-y-4 pt-0">
+                        {isInProgress && (
+                            <CardContent className="space-y-4 pt-0">
                             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                                  <div className="space-y-1">
-                                      <Label htmlFor={`occupied-${stopNameIdentifier}`} className="text-sm">Carros ocupados</Label>
-                                      <Input id={`occupied-${stopNameIdentifier}`} type="number" placeholder="Qtd." 
-                                          value={stopData[stop.name]?.occupied || ''}
-                                          onChange={(e) => handleStopDataChange(stop.name, 'occupied', e.target.value)}
-                                      />
-                                  </div>
-                                  <div className="space-y-1">
-                                      <Label htmlFor={`empty-${stopNameIdentifier}`} className="text-sm">Carros vazios</Label>
-                                      <Input id={`empty-${stopNameIdentifier}`} type="number" placeholder="Qtd." 
-                                          value={stopData[stop.name]?.empty || ''}
-                                          onChange={(e) => handleStopDataChange(stop.name, 'empty', e.target.value)}
-                                      />
-                                  </div>
-                                  <div className="space-y-1">
-                                      <Label htmlFor={`mileage-${stopNameIdentifier}`} className="text-sm">Km atual</Label>
-                                      <Input id={`mileage-${stopNameIdentifier}`} type="number" placeholder="Quilometragem"
-                                          value={stopData[stop.name]?.mileage || ''}
-                                          onChange={(e) => handleStopDataChange(stop.name, 'mileage', e.target.value)}
-                                      />
-                                  </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`occupied-${stopNameIdentifier}`} className="text-sm">Carros ocupados</Label>
+                                        <Input id={`occupied-${stopNameIdentifier}`} type="number" placeholder="Qtd." 
+                                            value={stopData[stop.name]?.occupied || ''}
+                                            onChange={(e) => handleStopDataChange(stop.name, 'occupied', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`empty-${stopNameIdentifier}`} className="text-sm">Carros vazios</Label>
+                                        <Input id={`empty-${stopNameIdentifier}`} type="number" placeholder="Qtd." 
+                                            value={stopData[stop.name]?.empty || ''}
+                                            onChange={(e) => handleStopDataChange(stop.name, 'empty', e.target.value)}
+                                        />
+                                    </div>
+                                    <div className="space-y-1">
+                                        <Label htmlFor={`mileage-${stopNameIdentifier}`} className="text-sm">Km atual</Label>
+                                        <Input id={`mileage-${stopNameIdentifier}`} type="number" placeholder="Quilometragem"
+                                            value={stopData[stop.name]?.mileage || ''}
+                                            onChange={(e) => handleStopDataChange(stop.name, 'mileage', e.target.value)}
+                                        />
+                                    </div>
                             </div>
-                          </CardContent>
-                      )}
-                      
-                      {isCompleted && (
-                          <CardContent className="space-y-2 pt-0 text-sm text-muted-foreground">
-                              <p>Carros ocupados: <strong>{stop.collectedOccupiedCars}</strong></p>
-                              <p>Carros vazios: <strong>{stop.collectedEmptyCars}</strong></p>
-                              <p>KM na Parada: <strong>{stop.mileageAtStop}</strong></p>
-                          </CardContent>
-                      )}
+                            </CardContent>
+                        )}
+                        
+                        {isCompleted && (
+                            <CardContent className="space-y-2 pt-0 text-sm text-muted-foreground">
+                                <p>Carros ocupados: <strong>{stop.collectedOccupiedCars}</strong></p>
+                                <p>Carros vazios: <strong>{stop.collectedEmptyCars}</strong></p>
+                                <p>KM na Parada: <strong>{stop.mileageAtStop}</strong></p>
+                            </CardContent>
+                        )}
 
-                      <CardFooter>
+                        <CardFooter>
                         {isPending && (
-                              <Button onClick={() => handleRegisterArrival(index)} disabled={!canStartThisStop}>
-                                  Registrar Chegada
-                              </Button>
+                                <Button onClick={() => handleRegisterArrival(index)} disabled={!canStartThisStop}>
+                                    Registrar Chegada
+                                </Button>
                         )}
                         {isInProgress && (
-                              <Button onClick={() => handleFinishStop(index)} variant="secondary" className="bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
-                                  <CheckCircle2 className="mr-2 h-4 w-4"/> Finalizar Parada
-                              </Button>
+                                <Button onClick={() => handleFinishStop(index)} variant="secondary" className="bg-green-600 text-white hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800">
+                                    <CheckCircle2 className="mr-2 h-4 w-4"/> Finalizar Parada
+                                </Button>
                         )}
-                      </CardFooter>
-                  </Card>
-              )
-          })}
-          
-          {allStopsCompleted && (
-              <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
-                  <CardHeader>
-                      <CardTitle>Rota Concluída!</CardTitle>
-                      <CardDescription>Todos os pontos de parada foram finalizados. Você pode finalizar o acompanhamento.</CardDescription>
-                  </CardHeader>
-                  <CardFooter>
-                      <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                              <Button className="w-full sm:w-auto">Finalizar Acompanhamento</Button>
-                          </AlertDialogTrigger>
-                          <AlertDialogContent>
-                              <AlertDialogHeader>
-                                  <AlertDialogTitle>Confirmar finalização?</AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                      Ao confirmar, a rota será marcada como concluída e não poderá ser reaberta.
-                                      A quilometragem da última parada será salva como a quilometragem final.
-                                  </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                                  <AlertDialogAction onClick={handleFinishRun}>Confirmar e Finalizar</AlertDialogAction>
-                              </AlertDialogFooter>
-                          </AlertDialogContent>
-                      </AlertDialog>
-                  </CardFooter>
-              </Card>
-          )}
+                        </CardFooter>
+                    </Card>
+                )
+            })}
+            
+            {allStopsCompleted && (
+                <Card className="bg-blue-50 dark:bg-blue-900/20 border-blue-200 dark:border-blue-800">
+                    <CardHeader>
+                        <CardTitle>Rota Concluída!</CardTitle>
+                        <CardDescription>Todos os pontos de parada foram finalizados. Você pode finalizar o acompanhamento.</CardDescription>
+                    </CardHeader>
+                    <CardFooter>
+                        <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                                <Button className="w-full sm:w-auto">Finalizar Acompanhamento</Button>
+                            </AlertDialogTrigger>
+                            <AlertDialogContent>
+                                <AlertDialogHeader>
+                                    <AlertDialogTitle>Confirmar finalização?</AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                        Ao confirmar, a rota será marcada como concluída e não poderá ser reaberta.
+                                        A quilometragem da última parada será salva como a quilometragem final.
+                                    </AlertDialogDescription>
+                                </AlertDialogHeader>
+                                <AlertDialogFooter>
+                                    <AlertDialogCancel>Cancelar</AlertDialogCancel>
+                                    <AlertDialogAction onClick={handleFinishRun}>Confirmar e Finalizar</AlertDialogAction>
+                                </AlertDialogFooter>
+                            </AlertDialogContent>
+                        </AlertDialog>
+                    </CardFooter>
+                </Card>
+            )}
         </main>
-      </div>
     </div>
   );
 }
