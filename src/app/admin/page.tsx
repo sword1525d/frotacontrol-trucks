@@ -178,12 +178,18 @@ export default function AdminPage() {
     await handleSubmission('usuário', async () => {
         if (!firestore || !auth) throw new Error('Firebase não disponível');
 
-        // 1. Create user in Firebase Auth
+        // 1. Pad password if needed
+        let password = data.userPassword;
+        if (password.length < 6) {
+          password = password.padStart(6, '0');
+        }
+
+        // 2. Create user in Firebase Auth
         const email = `${data.userMatricula}@frotacontrol.com`;
-        const userCredential = await createUserWithEmailAndPassword(auth, email, data.userPassword);
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
         const user = userCredential.user;
 
-        // 2. Create user document in Firestore
+        // 3. Create user document in Firestore
         const userRef = doc(firestore, `companies/${data.companyId}/sectors/${data.sectorId}/users`, user.uid);
         await setDoc(userRef, {
             name: data.userName,
