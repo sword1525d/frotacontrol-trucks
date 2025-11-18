@@ -280,15 +280,27 @@ const RunAccordionItem = ({ run }: { run: Run }) => {
 
     const lastPoint = uniqueLocations[uniqueLocations.length - 1];
     
-    // The "waypoints" parameter should be intermediate points, not start/end
-    const waypoints = uniqueLocations
-        .slice(0, -1) // Exclude the last point which will be the destination
+    // The "waypoints" parameter should be intermediate points.
+    // If there are too many, the URL will be too long. Let's sample them.
+    const MAX_WAYPOINTS = 25;
+    const intermediatePoints = uniqueLocations.slice(0, -1);
+    let waypoints = intermediatePoints;
+
+    if (intermediatePoints.length > MAX_WAYPOINTS) {
+      waypoints = [];
+      const step = Math.ceil(intermediatePoints.length / MAX_WAYPOINTS);
+      for (let i = 0; i < intermediatePoints.length; i += step) {
+        waypoints.push(intermediatePoints[i]);
+      }
+    }
+    
+    const waypointsString = waypoints
         .map(p => `${p.latitude},${p.longitude}`)
         .join('|');
 
     // For a real-time path, we can just show the waypoints and let Google Maps connect them.
-    // The last point acts as the "destination" if we provide it separately, but for a simple path drawing, waypoints are enough.
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${lastPoint.latitude},${lastPoint.longitude}&waypoints=${waypoints}&travelmode=driving`;
+    // The last point acts as the "destination".
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${lastPoint.latitude},${lastPoint.longitude}&waypoints=${waypointsString}&travelmode=driving`;
     
     window.open(url, 'mapPopup', 'width=800,height=600');
   };
@@ -514,12 +526,24 @@ const HistoryTableRow = ({ run }: { run: Run }) => {
         const origin = uniqueLocations[0];
         const destination = uniqueLocations[uniqueLocations.length - 1];
         
-        const waypoints = uniqueLocations
-            .slice(1, -1) // All points between start and end
+        // Sample waypoints to avoid overly long URLs
+        const MAX_WAYPOINTS = 25;
+        const intermediatePoints = uniqueLocations.slice(1, -1);
+        let waypoints = intermediatePoints;
+
+        if (intermediatePoints.length > MAX_WAYPOINTS) {
+          waypoints = [];
+          const step = Math.ceil(intermediatePoints.length / MAX_WAYPOINTS);
+          for (let i = 0; i < intermediatePoints.length; i += step) {
+            waypoints.push(intermediatePoints[i]);
+          }
+        }
+
+        const waypointsString = waypoints
             .map(p => `${p.latitude},${p.longitude}`)
             .join('|');
 
-        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypoints}&travelmode=driving`;
+        const url = `https://www.google.com/maps/dir/?api=1&origin=${origin.latitude},${origin.longitude}&destination=${destination.latitude},${destination.longitude}&waypoints=${waypointsString}&travelmode=driving`;
         
         window.open(url, 'mapPopup', 'width=800,height=600');
     };
