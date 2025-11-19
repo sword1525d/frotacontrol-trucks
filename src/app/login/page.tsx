@@ -155,8 +155,8 @@ export default function LoginPage() {
             });
 
             setTimeout(() => {
-                let redirectUrl = "/dashboard"; 
-                if (userData.isAdmin && !isMobile) {
+                let redirectUrl = "/dashboard-truck"; // Default a uma rota útil
+                if (userData.isAdmin) {
                     redirectUrl = "/dashboard-admin";
                 } else if (userData.truck) {
                     redirectUrl = "/dashboard-truck";
