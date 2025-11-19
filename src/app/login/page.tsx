@@ -196,7 +196,7 @@ export default function LoginPage() {
                     </h1>
                 </div>
                 <p className="text-balance text-muted-foreground">
-                    A sua frota, na sua mão
+                    A sua frota, no seu controle, na sua mão
                 </p>
             </div>
             <div className="rounded-lg border bg-card p-6 shadow-sm">
