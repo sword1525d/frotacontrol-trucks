@@ -1,3 +1,4 @@
+
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -7,7 +8,7 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, PlayCircle, Loader2 } from 'lucide-react';
+import { LogOut, PlayCircle, Loader2, Fuel } from 'lucide-react';
 import { Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import Link from 'next/link';
@@ -218,11 +219,14 @@ export default function DashboardTruckPage() {
 
         </div>
 
-        <section className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Acompanhamento</h2>
+        <section className="mb-8 grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Button className="w-full h-20 text-lg" onClick={handleStartOrContinueRun}>
                 <PlayCircle className="mr-3"/>
                 {activeRunId ? 'Continuar Acompanhamento' : 'Iniciar Acompanhamento'}
+            </Button>
+            <Button className="w-full h-20 text-lg" variant="secondary" onClick={() => router.push('/dashboard-truck/refuel')}>
+                <Fuel className="mr-3"/>
+                Registrar Abastecimento
             </Button>
         </section>
         
