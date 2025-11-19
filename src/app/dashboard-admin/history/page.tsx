@@ -18,11 +18,11 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip } from 'recharts';
+import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
 import { format, subDays, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
@@ -90,7 +90,7 @@ const HistoryPage = () => {
     const [allRuns, setAllRuns] = useState<Run[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [date, setDate] = useState<DateRange | undefined>({
-      from: startOfDay(new Date()),
+      from: startOfDay(subDays(new Date(), 6)),
       to: endOfDay(new Date()),
     });
     const [selectedRunForMap, setSelectedRunForMap] = useState<Run | null>(null);
@@ -164,26 +164,43 @@ const HistoryPage = () => {
       return { totalRuns, totalDistance, avgDurationMinutes };
     }, [filteredRuns]);
     
-    const chartData = useMemo(() => {
-        const last7Days = Array.from({ length: 7 }).map((_, i) => subDays(new Date(), i)).reverse();
+    const runsByDayChartData = useMemo(() => {
+        if (!date || !date.from) return [];
+        const from = startOfDay(date.from);
+        const to = endOfDay(date.to || date.from);
         
-        return last7Days.map(day => {
-            const dayStart = startOfDay(day);
-            const dayEnd = endOfDay(day);
-            const runsOnDay = allRuns.filter(run => {
-                if (!run.endTime?.seconds) return false;
-                const endTime = new Date(run.endTime.seconds * 1000);
-                return endTime >= dayStart && endTime <= dayEnd;
-            });
-            return {
-                name: format(day, 'dd/MM'),
-                total: runsOnDay.length,
-            };
+        const dateMap = new Map<string, number>();
+
+        for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) {
+            dateMap.set(format(d, 'dd/MM'), 0);
+        }
+
+        filteredRuns.forEach(run => {
+            if(run.endTime) {
+                const day = format(new Date(run.endTime.seconds * 1000), 'dd/MM');
+                if(dateMap.has(day)){
+                    dateMap.set(day, (dateMap.get(day) || 0) + 1);
+                }
+            }
         });
-    }, [allRuns]);
+
+        return Array.from(dateMap, ([name, total]) => ({ name, total }));
+    }, [filteredRuns, date]);
+
+    const distanceByVehicleChartData = useMemo(() => {
+        const distanceMap = new Map<string, number>();
+
+        filteredRuns.forEach(run => {
+            if (run.endMileage && run.startMileage) {
+                const distance = run.endMileage - run.startMileage;
+                distanceMap.set(run.vehicleId, (distanceMap.get(run.vehicleId) || 0) + distance);
+            }
+        });
+        
+        return Array.from(distanceMap, ([vehicleId, distance]) => ({ name: vehicleId, total: Math.round(distance) }));
+    }, [filteredRuns]);
 
     const handleViewRoute = (run: Run) => {
-        // Dummy data for map visualization as processing is complex
         setSelectedRunForMap(run);
     };
 
@@ -192,7 +209,7 @@ const HistoryPage = () => {
     }
 
     return (
-        <div className="flex-1 space-y-4">
+        <div className="flex-1 space-y-6">
             <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-4">
                 <h2 className="text-3xl font-bold tracking-tight">Histórico e Análise</h2>
                 <DateFilter date={date} setDate={setDate} />
@@ -204,48 +221,72 @@ const HistoryPage = () => {
                 <KpiCard title="Duração Média" value={`${kpis.avgDurationMinutes.toFixed(0)} min`} />
             </div>
             
-            <div className="grid gap-6 lg:grid-cols-5">
-                <Card className="lg:col-span-3">
+            <div className="grid gap-6 lg:grid-cols-2">
+                <Card>
                     <CardHeader>
-                        <CardTitle>Corridas nos Últimos 7 Dias</CardTitle>
+                        <CardTitle>Corridas por Dia</CardTitle>
+                        <CardDescription>Total de corridas concluídas por dia no período selecionado.</CardDescription>
                     </CardHeader>
                     <CardContent>
                         {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
                         <ResponsiveContainer width="100%" height={300}>
-                            <BarChart data={chartData}>
+                            <BarChart data={runsByDayChartData}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} />
                                 <XAxis dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
                                 <YAxis stroke="#888888" fontSize={12} tickLine={false} axisLine={false} allowDecimals={false} />
-                                <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))'}}/>
+                                <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)'}}/>
                                 <Bar dataKey="total" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
                             </BarChart>
                         </ResponsiveContainer>}
                     </CardContent>
                 </Card>
 
-                <Card className="lg:col-span-2">
+                <Card>
                     <CardHeader>
-                        <CardTitle>Histórico Recente</CardTitle>
-                        <CardDescription>Corridas concluídas no período.</CardDescription>
+                        <CardTitle>Km Rodados por Caminhão</CardTitle>
+                        <CardDescription>Distância total percorrida por cada caminhão no período.</CardDescription>
                     </CardHeader>
                     <CardContent>
-                    {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
-                        <div className="overflow-auto max-h-[300px]">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Motorista</TableHead>
-                                        <TableHead>Veículo</TableHead>
-                                        <TableHead className="text-right">Ação</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewRoute={() => handleViewRoute(run)} />) : <TableRow><TableCell colSpan={4} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
-                                </TableBody>
-                            </Table>
-                        </div>}
+                        {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                        <ResponsiveContainer width="100%" height={300}>
+                            <BarChart data={distanceByVehicleChartData} layout="vertical">
+                                <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+                                <XAxis type="number" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} />
+                                <YAxis type="category" dataKey="name" stroke="#888888" fontSize={12} tickLine={false} axisLine={false} width={80} />
+                                <Tooltip cursor={{fill: 'hsl(var(--muted))'}} contentStyle={{backgroundColor: 'hsl(var(--background))', border: '1px solid hsl(var(--border))', borderRadius: 'var(--radius)'}} formatter={(value) => `${value} km`}/>
+                                <Bar dataKey="total" fill="hsl(var(--primary))" radius={[0, 4, 4, 0]} />
+                            </BarChart>
+                        </ResponsiveContainer>}
                     </CardContent>
                 </Card>
             </div>
+            
+            <Card>
+                <CardHeader>
+                    <CardTitle>Histórico de Corridas</CardTitle>
+                    <CardDescription>Lista de corridas concluídas no período selecionado.</CardDescription>
+                </CardHeader>
+                <CardContent>
+                {isLoading ? <div className="flex justify-center items-center h-[300px]"><Loader2 className="w-8 h-8 animate-spin"/></div> :
+                    <div className="overflow-auto max-h-[400px]">
+                        <Table>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>Motorista</TableHead>
+                                    <TableHead>Veículo</TableHead>
+                                    <TableHead>Distância</TableHead>
+                                    <TableHead>Data</TableHead>
+                                    <TableHead className="text-right">Ação</TableHead>
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {filteredRuns.length > 0 ? filteredRuns.map(run => <HistoryTableRow key={run.id} run={run} onViewRoute={() => handleViewRoute(run)} />) : <TableRow><TableCell colSpan={5} className="text-center h-24">Nenhuma corrida encontrada</TableCell></TableRow>}
+                            </TableBody>
+                        </Table>
+                    </div>}
+                </CardContent>
+            </Card>
+
              <Dialog open={selectedRunForMap !== null} onOpenChange={(isOpen) => !isOpen && setSelectedRunForMap(null)}>
                 <DialogContent className="max-w-4xl h-[80vh]">
                 <DialogHeader>
@@ -277,13 +318,15 @@ const KpiCard = ({ title, value }: { title: string, value: string }) => (
 );
 
 const HistoryTableRow = ({ run, onViewRoute }: { run: Run, onViewRoute: () => void }) => {
+    const distance = run.endMileage && run.startMileage ? (run.endMileage - run.startMileage).toFixed(1) : 'N/A';
     return (
         <TableRow>
             <TableCell>
-                <div className="font-medium">{run.driverName}</div>
-                <div className="text-xs text-muted-foreground">{run.endTime ? format(new Date(run.endTime.seconds * 1000), 'dd/MM/yy HH:mm') : ''}</div>
+                <div className="font-medium flex items-center gap-2"><User className="h-4 w-4 text-muted-foreground" /> {run.driverName}</div>
             </TableCell>
-            <TableCell>{run.vehicleId}</TableCell>
+            <TableCell><div className="flex items-center gap-2"><Truck className="h-4 w-4 text-muted-foreground"/>{run.vehicleId}</div></TableCell>
+            <TableCell>{distance} km</TableCell>
+            <TableCell>{run.endTime ? format(new Date(run.endTime.seconds * 1000), 'dd/MM/yy HH:mm') : ''}</TableCell>
             <TableCell className="text-right">
                 <Button variant="outline" size="sm" onClick={onViewRoute}>
                     <Route className="h-4 w-4 mr-2" />
@@ -332,5 +375,3 @@ const DateFilter = ({ date, setDate }: { date: DateRange | undefined, setDate: (
 );
 
 export default HistoryPage;
-
-    
