@@ -18,7 +18,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
-import { Loader2, Calendar as CalendarIcon, Route, Truck } from 'lucide-react';
+import { Loader2, Calendar as CalendarIcon, Route, Truck, User } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { useRouter } from 'next/navigation';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
