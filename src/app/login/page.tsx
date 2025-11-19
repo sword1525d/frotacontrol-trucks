@@ -265,8 +265,9 @@ export default function LoginPage() {
         </form>
       </div>
 
-       <div className="fixed bottom-4 text-center w-full">
-         <Image src="/divmao.png" alt="Selo de Desenvolvimento" width={100} height={25} className="mx-auto opacity-70" />
+       <div className="fixed bottom-4 left-0 right-0 flex justify-center items-center gap-4">
+         <Image src="/logo_projetos.svg" alt="Logo Projetos" width={100} height={25} className="opacity-70" />
+         <Image src="/divmao.png" alt="Selo de Desenvolvimento" width={100} height={25} className="opacity-70" />
        </div>
     </div>
   );
