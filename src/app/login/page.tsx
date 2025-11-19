@@ -1,16 +1,15 @@
+
 'use client';
 
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useForm, Controller } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -139,7 +138,6 @@ export default function LoginPage() {
         if (userDoc.exists()) {
             const userData = userDoc.data();
 
-            // Salvar dados essenciais para a sessão
             localStorage.setItem('user', JSON.stringify({ ...userData, id: user.uid }));
             localStorage.setItem('companyId', data.companyId);
             localStorage.setItem('sectorId', data.sectorId);
@@ -151,7 +149,7 @@ export default function LoginPage() {
             });
 
             setTimeout(() => {
-                let redirectUrl = "/dashboard-truck"; // Default a uma rota útil
+                let redirectUrl = "/dashboard-truck"; 
                 if (userData.isAdmin) {
                     redirectUrl = "/dashboard-admin";
                 } else if (userData.truck) {
@@ -187,7 +185,7 @@ export default function LoginPage() {
   };
   
   return (
-    <div className="flex items-center justify-center h-screen bg-background p-6">
+    <div className="flex h-screen items-center justify-center bg-background p-6">
       <div className="mx-auto grid w-full max-w-sm gap-6">
         <div className="grid gap-2 text-center">
           <div className="flex items-center justify-center gap-2 mb-4">
@@ -266,6 +264,10 @@ export default function LoginPage() {
           </Button>
         </form>
       </div>
+
+       <div className="fixed bottom-4 text-center w-full">
+         <Image src="/divmao.png" alt="Selo de Desenvolvimento" width={100} height={25} className="mx-auto opacity-70" />
+       </div>
     </div>
   );
 }
