@@ -1,3 +1,4 @@
+
 'use client';
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useFirebase } from '@/firebase';
@@ -266,7 +267,8 @@ const AdminDashboardPage = () => {
 // --- Componente Header ---
 const Header = () => {
     const [time, setTime] = useState(new Date());
-     const router = useRouter();
+    const router = useRouter();
+    const { auth } = useFirebase();
 
     useEffect(() => {
         const timer = setInterval(() => setTime(new Date()), 1000 * 30);
@@ -275,6 +277,7 @@ const Header = () => {
 
     const handleLogout = () => {
         if (confirm('Tem certeza que deseja sair da conta?')) {
+            auth?.signOut();
             localStorage.clear();
             router.push('/login');
         }
