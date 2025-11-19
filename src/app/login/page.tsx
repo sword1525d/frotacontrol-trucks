@@ -193,13 +193,11 @@ export default function LoginPage() {
         <div className="w-full max-w-sm">
             <div className="grid gap-2 text-center mb-8">
                 <div className="flex items-center justify-center gap-2">
-                    <div className="relative flex items-center justify-center w-16 h-16 bg-white rounded-full border-4 border-gray-100 shadow-sm">
-                       <Truck className="h-8 w-8 text-primary" />
-                    </div>
+                    <Truck className="h-8 w-8 text-primary" />
+                    <h1 className="text-4xl font-bold font-headline text-primary">
+                        Frotacontrol
+                    </h1>
                 </div>
-                 <h1 className="text-4xl font-bold font-headline text-primary">
-                    Frotacontrol
-                </h1>
                 <p className="text-balance text-muted-foreground">
                     A sua frota, no seu controle, na sua mão
                 </p>
