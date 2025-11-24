@@ -1,4 +1,3 @@
-
 'use client';
 
 import { useEffect, useState } from 'react';
@@ -8,8 +7,9 @@ import { collection, getDocs, query, where } from 'firebase/firestore';
 
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { LogOut, PlayCircle, Loader2, Fuel } from 'lucide-react';
+import { LogOut, Fuel, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { TruckButton } from '@/components/ui/truck-button';
 
 // Tipos para os dados do Firebase
 type UserData = {
@@ -202,10 +202,9 @@ export default function DashboardTruckPage() {
         </header>
 
         <section className="space-y-4">
-            <Button className="w-full h-24 text-xl font-bold" onClick={handleStartOrContinueRun} variant="secondary">
-                <PlayCircle className="mr-3 h-8 w-8"/>
-                {activeRunId ? 'Continuar Trajeto' : 'Iniciar Trajeto'}
-            </Button>
+            <TruckButton onClick={handleStartOrContinueRun}>
+              {activeRunId ? 'Continuar Trajeto' : 'Iniciar Trajeto'}
+            </TruckButton>
             <Button className="w-full h-16 text-lg" variant="outline" onClick={() => router.push('/dashboard-truck/refuel')}>
                 <Fuel className="mr-3"/>
                 Registrar Abastecimento
