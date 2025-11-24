@@ -17,9 +17,10 @@ interface RealTimeMapProps {
 const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
   const mapRef = useRef<MapRef>(null);
   const [showPopup, setShowPopup] = useState<Segment | null>(null);
+  const hasZoomed = useRef(false);
 
   useEffect(() => {
-    if (mapRef.current && fullLocationHistory.length > 0) {
+    if (mapRef.current && fullLocationHistory.length > 0 && !hasZoomed.current) {
       const coordinates = fullLocationHistory.map(p => [p.longitude, p.latitude]) as [number, number][];
       if (coordinates.length === 0) return;
 
@@ -31,8 +32,9 @@ const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
         padding: 80,
         duration: 1000,
       });
+      hasZoomed.current = true;
     }
-  }, [segments, fullLocationHistory]);
+  }, [fullLocationHistory]);
 
 
   if (!MAPBOX_TOKEN) {
