@@ -488,7 +488,11 @@ const RunDetailsDialog = ({ run, isOpen, onClose }: { run: Run | null, isOpen: b
                         </div>
                     </TabsContent>
                     <TabsContent value="map" className="h-[calc(100%-40px)] bg-muted rounded-md">
-                        <RealTimeMap segments={[]} fullLocationHistory={run.locationHistory?.map(p => ({latitude: p.latitude, longitude: p.longitude})) || []} />
+                        <RealTimeMap 
+                            segments={[]} 
+                            fullLocationHistory={run.locationHistory?.map(p => ({latitude: p.latitude, longitude: p.longitude})) || []}
+                            vehicleId={run.vehicleId}
+                        />
                     </TabsContent>
                 </Tabs>
             </DialogContent>

@@ -12,12 +12,19 @@ const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN;
 interface RealTimeMapProps {
   segments: Segment[];
   fullLocationHistory: { latitude: number; longitude: number }[];
+  vehicleId?: string;
 }
 
-const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
+const RealTimeMap = ({ segments, fullLocationHistory, vehicleId }: RealTimeMapProps) => {
   const mapRef = useRef<MapRef>(null);
   const [showPopup, setShowPopup] = useState<Segment | null>(null);
   const hasZoomed = useRef(false);
+
+  useEffect(() => {
+    // Reset hasZoomed ref when the underlying data changes to allow re-zooming on new selections
+    hasZoomed.current = false;
+  }, [fullLocationHistory, segments]);
+
 
   useEffect(() => {
     if (mapRef.current && fullLocationHistory.length > 0 && !hasZoomed.current) {
@@ -132,8 +139,15 @@ const RealTimeMap = ({ segments, fullLocationHistory }: RealTimeMapProps) => {
           latitude={lastPosition.latitude}
           anchor="bottom"
         >
-          <div className="bg-primary rounded-full p-2 shadow-lg">
-              <Truck className="h-5 w-5 text-primary-foreground" />
+          <div className="flex flex-col items-center">
+            {vehicleId && (
+              <div className="bg-black/60 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-sm mb-1">
+                {vehicleId}
+              </div>
+            )}
+            <div className="bg-primary rounded-full p-2 shadow-lg">
+                <Truck className="h-5 w-5 text-primary-foreground" />
+            </div>
           </div>
         </Marker>
       )}

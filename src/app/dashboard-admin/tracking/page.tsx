@@ -230,7 +230,11 @@ const TrackingPage = () => {
           </DialogHeader>
           <div className="h-[calc(80vh-100px)] bg-muted rounded-md">
             {selectedRunForMap && (
-              <RealTimeMap segments={mapSegments} fullLocationHistory={fullLocationHistory} />
+              <RealTimeMap 
+                segments={mapSegments} 
+                fullLocationHistory={fullLocationHistory} 
+                vehicleId={selectedRunForMap.vehicleId}
+              />
             )}
           </div>
         </DialogContent>
@@ -337,5 +341,3 @@ const RunAccordionItem = ({ run, onViewRoute }: { run: Run, onViewRoute: () => v
 }
 
 export default TrackingPage;
-
-    
