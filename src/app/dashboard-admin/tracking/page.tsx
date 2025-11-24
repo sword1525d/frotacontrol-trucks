@@ -95,11 +95,13 @@ const processRunSegments = (run: Run): Segment[] => {
     if (!run.locationHistory || run.locationHistory.length === 0) return [];
     
     const sortedLocations = [...run.locationHistory].sort((a,b) => a.timestamp.seconds - b.timestamp.seconds);
-    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || 0) - (b.arrivalTime?.seconds || 0));
+    const sortedStops = [...run.stops].filter(s => s.status !== 'CANCELED').sort((a, b) => (a.arrivalTime?.seconds || Infinity) - (b.arrivalTime?.seconds || Infinity));
 
     const segments: Segment[] = [];
     let lastDepartureTime = run.startTime;
+    let lastStopIndex = -1;
 
+    // Create segments for completed parts of the journey
     for(let i = 0; i < sortedStops.length; i++) {
         const stop = sortedStops[i];
         if (!stop.arrivalTime) continue;
@@ -113,17 +115,6 @@ const processRunSegments = (run: Run): Segment[] => {
                 return locTime >= lastDepartureTime.seconds && locTime <= stop.arrivalTime!.seconds;
             })
             .map(loc => [loc.longitude, loc.latitude] as [number, number]);
-
-        if(segmentPath.length > 0 && i > 0) {
-           const prevStop = sortedStops[i-1];
-           const prevStopTime = prevStop.departureTime ? new Date(prevStop.departureTime.seconds * 1000) : null;
-           if(prevStopTime) {
-              const firstPointOfCurrentSegment = sortedLocations.find(l => l.timestamp.seconds >= prevStopTime.getTime() / 1000);
-              if(firstPointOfCurrentSegment) {
-                 segmentPath.unshift([firstPointOfCurrentSegment.longitude, firstPointOfCurrentSegment.latitude]);
-              }
-           }
-        }
         
         segments.push({
             label: `Trajeto para ${stop.name}`,
@@ -135,7 +126,27 @@ const processRunSegments = (run: Run): Segment[] => {
         
         if (stopDepartureTime) {
             lastDepartureTime = stop.departureTime!;
+            lastStopIndex = i;
+        } else {
+             // Stop is in progress, no more segments to process after this one.
+            break;
         }
+    }
+    
+    // Create the real-time "in-progress" segment
+    const lastTimestamp = lastDepartureTime.seconds;
+    const inProgressPath = sortedLocations
+        .filter(loc => loc.timestamp.seconds >= lastTimestamp)
+        .map(loc => [loc.longitude, loc.latitude] as [number, number]);
+
+    if (inProgressPath.length > 1) {
+        segments.push({
+            label: 'Trajeto em andamento',
+            path: inProgressPath,
+            color: '#71717a', // A neutral color like gray
+            travelTime: formatTimeDiff(new Date(lastTimestamp * 1000), new Date()),
+            stopTime: '',
+        });
     }
 
     return segments;
@@ -176,6 +187,18 @@ const TrackingPage = () => {
         const runs: Run[] = runsSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Run));
         const sortedRuns = runs.sort((a, b) => a.startTime.seconds - b.startTime.seconds);
         setActiveRuns(sortedRuns);
+
+        // If a run is being displayed on the map, update its data
+        if (selectedRunForMap) {
+            const updatedRun = runs.find(run => run.id === selectedRunForMap.id);
+            if (updatedRun) {
+                setSelectedRunForMap(updatedRun);
+            } else {
+                // The run is no longer active, close the dialog
+                setSelectedRunForMap(null);
+            }
+        }
+
         setIsLoading(false);
     }, (error) => {
         console.error("Error fetching active runs: ", error);
@@ -184,7 +207,7 @@ const TrackingPage = () => {
     });
     
     return () => unsubscribeRuns();
-  }, [firestore, user, toast]);
+  }, [firestore, user, toast, selectedRunForMap]);
 
   const handleViewRoute = (run: Run) => {
       if (!run.locationHistory || run.locationHistory.length < 1) {
